@@ -1,0 +1,13 @@
+{
+    "name": "stremio-addon-watchlist-filmweb",
+    "version": "0.0.1",
+    "description": "desc",
+    "scripts": {
+        "start": "node server.js"
+    },
+    "dependencies": {
+        "axios": "^1.13.6",
+        "node-cache": "^5.1.2",
+        "stremio-addon-sdk": "1.1.x"
+    }
+}
