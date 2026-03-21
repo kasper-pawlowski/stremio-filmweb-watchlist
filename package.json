@@ -1,7 +1,7 @@
 {
     "name": "stremio-addon-watchlist-filmweb",
-    "version": "0.0.1",
-    "description": "desc",
+    "version": "1.0.0",
+    "description": "Dodatek do Stremio importujący listę 'Chcę zobaczyć' z portalu Filmweb.pl. Posiada wbudowaną integrację z AIOmetadata dla polskich opisów.",
     "scripts": {
         "start": "node server.js"
     },

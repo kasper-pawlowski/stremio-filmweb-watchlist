@@ -26,7 +26,7 @@ function getManifest(username) {
         id: 'community.watchlist-filmweb',
         version: '1.0.0',
         name: isConfigured ? `Filmweb Watchlist (${username})` : 'Filmweb Watchlist',
-        description: 'Pobiera listę "Chcę zobaczyć" z Filmwebu. Wspiera polskie opisy via AIOmetadata.',
+        description: 'Twoja lista "Chcę zobaczyć" z Filmwebu prosto w bibliotece Stremio. Pełne wsparcie dla polskich plakatów i opisów.',
         idPrefixes: ['tt'],
         resources: ['catalog'],
         types: ['movie', 'series'],

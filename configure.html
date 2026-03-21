@@ -256,7 +256,7 @@
                     return;
                 }
 
-                const baseUrl = window.location.origin;
+                const baseUrl = window.location.origin.replace('http://', 'https://');
 
                 let manifestPath = `/${encodeURIComponent(username)}`;
 
