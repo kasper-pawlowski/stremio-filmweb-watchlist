@@ -6,6 +6,7 @@ const NodeCache = require('node-cache');
 // ==========================================
 
 const metaCache = new NodeCache({ stdTTL: 86400 });
+const userListCache = new NodeCache({ stdTTL: 300 });
 
 const axiosConfig = {
     headers: {
@@ -57,8 +58,22 @@ async function getCatalog(username, type, aioId) {
     console.log(`\n=== Pobieram katalog: ${type.toUpperCase()} dla użytkownika: ${username} ===`);
 
     const listaZFilmwebu = await fetchWatchlist(username, type);
-    const gotoweMetas = [];
 
+    if (!listaZFilmwebu || listaZFilmwebu.length === 0) {
+        return {
+            metas: [
+                {
+                    id: `error-${username}`,
+                    type: type,
+                    name: 'Błąd lub pusta lista',
+                    poster: '',
+                    description: "Twój profil na Filmwebie nie istnieje, jest prywatny lub lista 'Chcę zobaczyć' jest pusta.",
+                },
+            ],
+        };
+    }
+
+    const gotoweMetas = [];
     const chunks = chunkArray(listaZFilmwebu, 20);
 
     for (const chunk of chunks) {
@@ -75,14 +90,21 @@ async function getCatalog(username, type, aioId) {
 }
 
 // ==========================================
-// 4. LOGIKA FILMWEBU
+// 4. LOGIKA FILMWEBU (Z CACHEM)
 // ==========================================
 
 async function fetchWatchlist(username, type) {
-    try {
-        const fwType = type === 'series' ? 'serial' : 'film';
-        const url = `https://www.filmweb.pl/api/v1/user/${username}/want2see/${fwType}`;
+    const fwType = type === 'series' ? 'serial' : 'film';
+    const cacheKey = `${username}-${fwType}`;
 
+    const cachedList = userListCache.get(cacheKey);
+    if (cachedList) {
+        console.log(`⚡ Zwracam listę Filmwebu (${fwType}) z Cache dla: ${username}`);
+        return cachedList;
+    }
+
+    try {
+        const url = `https://www.filmweb.pl/api/v1/user/${username}/want2see/${fwType}`;
         const response = await axios.get(url, axiosConfig);
         const itemIds = response.data.map((item) => item.entity);
 
@@ -95,14 +117,18 @@ async function fetchWatchlist(username, type) {
             const chunk = itemIds.slice(i, i + chunkSize);
             const chunkPromises = chunk.map(async (id) => {
                 const infoUrl = `https://www.filmweb.pl/api/v1/title/${id}/info`;
-                const infoResponse = await axios.get(infoUrl, axiosConfig);
-                return infoResponse.data;
+                try {
+                    const infoResponse = await axios.get(infoUrl, axiosConfig);
+                    return infoResponse.data;
+                } catch (e) {
+                    return null;
+                }
             });
             const chunkResults = await Promise.all(chunkPromises);
-            itemsData.push(...chunkResults);
+            itemsData.push(...chunkResults.filter(Boolean));
         }
 
-        return itemsData.map((item) => ({
+        const finalResult = itemsData.map((item) => ({
             id: item.id.toString(),
             plTitle: item.title,
             originalTitle: item.originalTitle || item.title,
@@ -110,6 +136,9 @@ async function fetchWatchlist(username, type) {
             posterPath: item.posterPath,
             type: type,
         }));
+
+        userListCache.set(cacheKey, finalResult);
+        return finalResult;
     } catch (error) {
         console.error(`Błąd API Filmwebu dla typu ${type}:`, error.message);
         return [];
@@ -138,9 +167,7 @@ async function translateToImdb(movie, aioId) {
 
         if (match) {
             const imdbId = match.imdb_id || match.id;
-
             const richData = await fetchRichMetadata(imdbId, movie.type, aioId);
-
             const finalPoster = richData.poster || match.poster;
 
             const metaPreview = {
