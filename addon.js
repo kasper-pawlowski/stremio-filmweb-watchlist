@@ -39,6 +39,11 @@ function getManifest(username) {
               ]
             : [],
         behaviorHints: { configurable: true },
+        stremioAddonsConfig: {
+            issuer: 'https://stremio-addons.net',
+            signature:
+                'eyJhbGciOiJkaXIiLCJlbmMiOiJBMTI4Q0JDLUhTMjU2In0..ckqk8R-dnLfsbFfZHWkhpQ.DBgf6USIkGkVdL0i_Ni1G7F5_cr99Q4TAMLZxb0rj4uhj37j1kvaAWBr5avaJAGgHY8MUJXZh1DmZLLJB2fsTEWrUdXjQmEid0VD6kWNb6fQB00Swk2LeBqO0Q6IBsYT.KZMyQLufjcAyZvK6-FowCg',
+        },
     };
 }
 
