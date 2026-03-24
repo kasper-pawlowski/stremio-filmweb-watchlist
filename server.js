@@ -34,42 +34,62 @@ app.get('/manifest.json', (req, res) => {
     res.json(manifest);
 });
 
-// 1A. Manifest: TYLKO USERNAME
+// 1A. Manifest: TYLKO USERNAME (Dla starych użytkowników)
 app.get('/:username/manifest.json', (req, res) => {
     if (!isValidUsername(req.params.username)) return res.status(400).send('Invalid username');
-    const manifest = addon.getManifest(req.params.username);
+    const manifest = addon.getManifest(req.params.username, false);
     res.json(manifest);
 });
 
-// 1B. Manifest: USERNAME + UUID (AIO)
+// 1B. Manifest: USERNAME + UUID (Dla starych użytkowników)
 app.get('/:username/:aioId/manifest.json', (req, res) => {
     if (!isValidUsername(req.params.username)) return res.status(400).send('Invalid username');
-    const manifest = addon.getManifest(req.params.username);
+    const manifest = addon.getManifest(req.params.username, false);
+    res.json(manifest);
+});
+
+// 1C. Manifest: USERNAME + UUID + POPULAR
+app.get('/:username/:aioId/:popular/manifest.json', (req, res) => {
+    if (!isValidUsername(req.params.username)) return res.status(400).send('Invalid username');
+    const includePopular = req.params.popular === 'true';
+    const manifest = addon.getManifest(req.params.username, includePopular);
     res.json(manifest);
 });
 
 // 2A. Katalog: TYLKO USERNAME
 app.get('/:username/catalog/:type/:id.json', async (req, res) => {
     const { username, type, id } = req.params;
-
     if (!isValidUsername(username)) return res.json({ metas: [] });
-
-    if (id.startsWith('filmweb-watchlist')) {
-        const data = await addon.getCatalog(username, type, null);
+    // Dodano obsługę ID popularnych
+    if (id.startsWith('filmweb-watchlist') || id.startsWith('filmweb-popular')) {
+        const data = await addon.getCatalog(username, type, null, id);
         res.json(data);
     } else {
         res.json({ metas: [] });
     }
 });
 
-// 2B. Katalog: USERNAME + UUID (AIO)
+// 2B. Katalog: USERNAME + UUID
 app.get('/:username/:aioId/catalog/:type/:id.json', async (req, res) => {
     const { username, aioId, type, id } = req.params;
+    if (!isValidUsername(username)) return res.json({ metas: [] });
+    if (id.startsWith('filmweb-watchlist') || id.startsWith('filmweb-popular')) {
+        const data = await addon.getCatalog(username, type, aioId, id);
+        res.json(data);
+    } else {
+        res.json({ metas: [] });
+    }
+});
 
+// 2C. Katalog: USERNAME + UUID + POPULAR
+app.get('/:username/:aioId/:popular/catalog/:type/:id.json', async (req, res) => {
+    const { username, aioId, popular, type, id } = req.params;
     if (!isValidUsername(username)) return res.json({ metas: [] });
 
-    if (id.startsWith('filmweb-watchlist')) {
-        const data = await addon.getCatalog(username, type, aioId);
+    const actualAioId = aioId === 'none' ? null : aioId;
+
+    if (id.startsWith('filmweb-watchlist') || id.startsWith('filmweb-popular')) {
+        const data = await addon.getCatalog(username, type, actualAioId, id);
         res.json(data);
     } else {
         res.json({ metas: [] });

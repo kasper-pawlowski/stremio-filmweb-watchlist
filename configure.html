@@ -202,8 +202,27 @@
                                             </div>
                                         </div>
                                     </label>
+
+                                    <label class="pt-2 flex flex-col gap-1 cursor-pointer group/checkPop">
+                                        <div class="flex items-center gap-2">
+                                            <div class="relative flex items-center">
+                                                <input class="peer sr-only" id="popular-checkbox" type="checkbox" />
+                                                <div
+                                                    class="w-5 h-5 border-2 border-outline rounded transition-all peer-checked:bg-primary-container peer-checked:border-primary-container"></div>
+                                                <span
+                                                    class="material-symbols-outlined absolute text-on-primary-container text-lg scale-0 peer-checked:scale-100 transition-transform"
+                                                    >check</span
+                                                >
+                                            </div>
+                                            <span
+                                                class="text-sm font-medium text-on-surface-variant group-hover/checkPop:text-on-surface transition-colors"
+                                                >Dodaj dodatkowe katalogi "Popularne na Filmwebie"</span
+                                            >
+                                        </div>
+                                    </label>
                                 </div>
                             </div>
+
                             <div class="space-y-4">
                                 <button
                                     onclick="installAddon()"
@@ -245,6 +264,7 @@
                 const username = document.getElementById('filmwebUsername').value.trim();
                 const uuidValue = document.getElementById('uuid-input')?.value.trim() || '';
                 const isAioChecked = document.getElementById('aio-checkbox')?.checked || false;
+                const isPopularChecked = document.getElementById('popular-checkbox')?.checked || false;
 
                 if (!username) {
                     alert('Proszę wpisać swój nick z Filmwebu!');
@@ -258,13 +278,10 @@
 
                 const baseUrl = window.location.origin.replace('http://', 'https://');
 
-                let manifestPath = `/${encodeURIComponent(username)}`;
+                const aioPath = isAioChecked && uuidValue ? encodeURIComponent(uuidValue) : 'none';
+                const popPath = isPopularChecked ? 'true' : 'false';
 
-                if (isAioChecked && uuidValue) {
-                    manifestPath += `/${encodeURIComponent(uuidValue)}`;
-                }
-
-                manifestPath += `/manifest.json`;
+                const manifestPath = `/${encodeURIComponent(username)}/${aioPath}/${popPath}/manifest.json`;
 
                 const stremioUrl = (baseUrl + manifestPath).replace(/^https?:\/\//, 'stremio://');
 

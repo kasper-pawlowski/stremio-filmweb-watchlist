@@ -20,8 +20,20 @@ const axiosConfig = {
 // 2. MANIFEST
 // ==========================================
 
-function getManifest(username) {
+function getManifest(username, includePopular = false) {
     const isConfigured = username && username !== '';
+
+    let catalogs = isConfigured
+        ? [
+              { type: 'movie', id: 'filmweb-watchlist-movies', name: 'Filmweb: Chcę zobaczyć' },
+              { type: 'series', id: 'filmweb-watchlist-series', name: 'Filmweb: Chcę zobaczyć' },
+          ]
+        : [];
+
+    if (isConfigured && includePopular) {
+        catalogs.push({ type: 'movie', id: 'filmweb-popular-movies', name: 'Filmweb: Popularne' });
+        catalogs.push({ type: 'series', id: 'filmweb-popular-series', name: 'Filmweb: Popularne' });
+    }
 
     return {
         id: 'community.watchlist-filmweb',
@@ -32,12 +44,7 @@ function getManifest(username) {
         resources: ['catalog'],
         types: ['movie', 'series'],
         logo: 'https://www.filmweb.pl/favicon.ico',
-        catalogs: isConfigured
-            ? [
-                  { type: 'movie', id: 'filmweb-watchlist-movies', name: 'Filmweb: Chcę zobaczyć' },
-                  { type: 'series', id: 'filmweb-watchlist-series', name: 'Filmweb: Chcę zobaczyć' },
-              ]
-            : [],
+        catalogs: catalogs,
         behaviorHints: { configurable: true },
         stremioAddonsConfig: {
             issuer: 'https://stremio-addons.net',
@@ -59,10 +66,17 @@ function chunkArray(array, size) {
     return chunked;
 }
 
-async function getCatalog(username, type, aioId) {
-    console.log(`\n=== Pobieram katalog: ${type.toUpperCase()} dla użytkownika: ${username} ===`);
+async function getCatalog(username, type, aioId, catalogId) {
+    console.log(`\n=== Pobieram katalog: ${type.toUpperCase()} (ID: ${catalogId}) dla użytkownika: ${username} ===`);
 
-    const listaZFilmwebu = await fetchWatchlist(username, type);
+    let listaZFilmwebu = [];
+
+    // Decydujemy skąd zaciągać ID!
+    if (catalogId && catalogId.includes('popular')) {
+        listaZFilmwebu = await fetchPopular(type);
+    } else {
+        listaZFilmwebu = await fetchWatchlist(username, type);
+    }
 
     if (!listaZFilmwebu || listaZFilmwebu.length === 0) {
         return {
@@ -72,7 +86,9 @@ async function getCatalog(username, type, aioId) {
                     type: type,
                     name: 'Błąd lub pusta lista',
                     poster: '',
-                    description: "Twój profil na Filmwebie nie istnieje, jest prywatny lub lista 'Chcę zobaczyć' jest pusta.",
+                    description: catalogId.includes('popular')
+                        ? 'Nie udało się pobrać listy popularnych.'
+                        : "Twój profil na Filmwebie nie istnieje, jest prywatny lub lista 'Chcę zobaczyć' jest pusta.",
                 },
             ],
         };
@@ -146,6 +162,63 @@ async function fetchWatchlist(username, type) {
         return finalResult;
     } catch (error) {
         console.error(`Błąd API Filmwebu dla typu ${type}:`, error.message);
+        return [];
+    }
+}
+
+const popularCache = new NodeCache({ stdTTL: 3600 }); // Cache na 1 godzinę dla rankingów (żeby nie psuć API Filmwebu)
+
+async function fetchPopular(type) {
+    const fwType = type === 'series' ? 'serial' : 'film';
+    const cacheKey = `popular-${fwType}`;
+
+    const cachedList = popularCache.get(cacheKey);
+    if (cachedList) {
+        console.log(`⚡ Zwracam listę Popularnych Filmwebu (${fwType}) z Cache`);
+        return cachedList;
+    }
+
+    try {
+        const url = `https://www.filmweb.pl/api/v1/${fwType}/popular?all=false`;
+        const response = await axios.get(url, axiosConfig);
+
+        // Zabezpieczenie na format obiektu (Filmweb potrafi zwracać same ID lub zagnieżdżone obiekty)
+        const itemIds = response.data.map((item) => (typeof item === 'object' ? item.id || item.entity : item));
+
+        console.log(`> Znalazłem ${itemIds.length} ID w zakładce POPULARNE ${fwType.toUpperCase()}`);
+
+        const chunkSize = 20;
+        const itemsData = [];
+
+        // Przetwarzanie identyczne jak w watchliście
+        for (let i = 0; i < itemIds.length; i += chunkSize) {
+            const chunk = itemIds.slice(i, i + chunkSize);
+            const chunkPromises = chunk.map(async (id) => {
+                const infoUrl = `https://www.filmweb.pl/api/v1/title/${id}/info`;
+                try {
+                    const infoResponse = await axios.get(infoUrl, axiosConfig);
+                    return infoResponse.data;
+                } catch (e) {
+                    return null;
+                }
+            });
+            const chunkResults = await Promise.all(chunkPromises);
+            itemsData.push(...chunkResults.filter(Boolean));
+        }
+
+        const finalResult = itemsData.map((item) => ({
+            id: item.id.toString(),
+            plTitle: item.title,
+            originalTitle: item.originalTitle || item.title,
+            year: item.year,
+            posterPath: item.posterPath,
+            type: type,
+        }));
+
+        popularCache.set(cacheKey, finalResult);
+        return finalResult;
+    } catch (error) {
+        console.error(`Błąd API Filmwebu (Popularne) dla typu ${type}:`, error.message);
         return [];
     }
 }
